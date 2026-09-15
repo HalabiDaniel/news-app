@@ -14,8 +14,8 @@ export const dynamic = 'force-dynamic';
 // yield fewer than five articles rather than a 504 with nothing saved.
 export const maxDuration = 60;
 
-// Leave headroom inside the 60s ceiling for the DB writes and the email that
-// follow the model stages. Override with BRIEFING_ROUTE_DEADLINE_MS.
+// Leave headroom inside the 60s ceiling for the DB writes that follow the model
+// stages. Override with BRIEFING_ROUTE_DEADLINE_MS.
 const ROUTE_DEADLINE_MS = envPositive('BRIEFING_ROUTE_DEADLINE_MS', 45_000);
 
 // The scheduled run scrapes 6 articles per category and picks the best; 30

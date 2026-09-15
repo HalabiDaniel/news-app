@@ -93,8 +93,12 @@ export interface RunOptions {
   scrapesPerCategory?: number;
   /** Called after articles are written to the DB (used to bust the ISR cache). */
   onPersisted?: (date: string) => void | Promise<void>;
-  /** Skip the push notification (handy when re-running to fix the website only). */
-  skipNotify?: boolean;
+  // There is deliberately no "skip the notification" option here: this function
+  // does not send one. Push goes out from scripts/run-briefing.ts, after the
+  // articles are persisted and the site cache is refreshed, so the switch for it
+  // lives there too (`npm run briefing -- --no-push`). An option on this
+  // interface would have to be threaded through to a caller that ignores it,
+  // which is worse than not offering it.
 }
 
 export interface RunResult {

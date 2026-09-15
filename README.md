@@ -89,7 +89,9 @@ npm run dev                 # the site on http://localhost:3000
 
 `BRIEFING_DATE=2026-01-01 npm run briefing` writes to a specific date, which is
 how you test without overwriting a real day. `--force` regenerates a date that
-already completed.
+already completed, and `--no-push` leaves the phone alone while doing it — which
+is what you want when you are re-running a day to fix the website rather than to
+announce it.
 
 ## The daily run
 

@@ -11,6 +11,11 @@
  *
  * Run locally with:  npm run briefing
  * Force a re-run:    npm run briefing -- --force
+ * Website only:      npm run briefing -- --force --no-push
+ *
+ * `--no-push` is for re-running a day to fix the website without buzzing the
+ * phone a second time. The push is the only part of this script that reaches
+ * outside; everything else is safe to repeat.
  */
 import { runBriefing } from '../lib/briefing';
 import { berlinDateString } from '../lib/dates';
@@ -43,6 +48,7 @@ async function revalidateSite(date: string): Promise<void> {
 
 async function main(): Promise<void> {
   const force = process.argv.includes('--force');
+  const skipPush = process.argv.includes('--no-push');
   const date = process.env.BRIEFING_DATE || berlinDateString();
 
   console.log(`[briefing] starting run for ${date}${force ? ' (forced)' : ''}`);
@@ -58,14 +64,18 @@ async function main(): Promise<void> {
 
   console.log(`[briefing] ${date}: wrote ${result.articles} article(s) in ${seconds}s.`);
 
-  // Notify last, and never let it fail the run: the briefing is already written
-  // and live on the website, which is the part that matters.
-  try {
-    const sent = await sendBriefingPush(date, result.articles);
-    await recordPushCount(date, sent);
-    console.log(`[push] notified ${sent} device(s).`);
-  } catch (err) {
-    console.warn(`[push] notification step failed: ${err instanceof Error ? err.message : String(err)}`);
+  if (skipPush) {
+    console.log('[push] --no-push: the website is updated, the phone is not.');
+  } else {
+    // Notify last, and never let it fail the run: the briefing is already
+    // written and live on the website, which is the part that matters.
+    try {
+      const sent = await sendBriefingPush(date, result.articles);
+      await recordPushCount(date, sent);
+      console.log(`[push] notified ${sent} device(s).`);
+    } catch (err) {
+      console.warn(`[push] notification step failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   if (result.errors.length) {
