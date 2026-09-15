@@ -1,0 +1,31 @@
+name: CI
+
+# Typecheck and build on every push and every pull request.
+#
+# This workflow has NO secrets, deliberately. It runs on `pull_request`, which
+# on a public repo means it can be triggered by code from anyone's fork. GitHub
+# already withholds secrets from fork PRs, and the way that protection gets
+# defeated is `pull_request_target` — which must never appear in this repo.
+#
+# The build has to succeed with no database credentials at all: lib/queries.ts
+# swallows every error to an empty result precisely so that holds.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build

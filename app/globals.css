@@ -1,0 +1,47 @@
+/*
+ * Minimal readable defaults for the Phase 1 placeholder. The real typographic
+ * system belongs to Phase 4 — this only has to be legible and respect the
+ * system theme, so the placeholder doesn't look broken on a phone.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: #fdfdfc;
+  --fg: #1a1a18;
+  --muted: #5c5c56;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14140f;
+    --fg: #ececd9;
+    --muted: #9c9c90;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 3rem 1.25rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 1rem/1.6 ui-serif, Georgia, 'Times New Roman', serif;
+}
+
+main {
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.6rem;
+  line-height: 1.25;
+  margin: 0 0 0.75rem;
+}
+
+p {
+  color: var(--muted);
+  margin: 0;
+}
