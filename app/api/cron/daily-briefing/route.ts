@@ -58,13 +58,14 @@ async function handle(request: Request): Promise<NextResponse> {
       force: forced(request),
       deadlineMs: ROUTE_DEADLINE_MS,
       scrapesPerCategory: ROUTE_SCRAPES_PER_CATEGORY,
-      // The homepage, archive index, and this day's archive page all use ISR, so
-      // without this they'd keep serving stale markup for up to five minutes —
-      // the briefing would arrive by email but not show on the site.
+      // Every page a new briefing changes uses ISR, so without this they'd keep
+      // serving stale markup for up to five minutes — the button would report
+      // success and the site would still show nothing. Same four paths as
+      // /api/revalidate, which is what the scheduled run pings.
       onPersisted: (date) => {
-        revalidatePath('/');
-        revalidatePath('/archive');
-        revalidatePath(`/archive/${date}`);
+        for (const path of ['/', '/archiv', `/archiv/${date}`, '/vokabeln']) {
+          revalidatePath(path);
+        }
       },
     });
 

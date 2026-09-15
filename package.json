@@ -9,6 +9,8 @@
     "briefing": "tsx scripts/run-briefing.ts",
     "check-feeds": "tsx scripts/check-feeds.ts",
     "check-models": "tsx scripts/check-models.ts",
+    "check-archive": "tsx scripts/check-archive.ts",
+    "icons": "node scripts/generate-icons.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -1,0 +1,135 @@
+name: Daily Briefing
+
+# This workflow IS the scheduled run — it no longer just pokes a Vercel endpoint.
+#
+# The pipeline (RSS → shortlist → scrape the shortlist → choose → write) is six
+# stages deep and does not reliably fit Vercel's 60s Hobby function ceiling;
+# overshooting there means a 504 with nothing saved. An Actions runner has no
+# time limit and costs nothing, so the job runs here and writes straight to
+# Supabase — including the up-to-30 Firecrawl fetches, which are the slowest
+# stage and are capped per day in the database (see lib/scrapeBudget.ts).
+#
+# On a PUBLIC repository this runner is free and unmetered: the 2,000-minute
+# account meter that stopped the old private repo does not apply at all. The
+# price of that is two public-repo rules worth knowing:
+#   * scheduled workflows are auto-disabled after 60 days with no repository
+#     activity (GitHub emails a warning first — re-enable it, or move the
+#     trigger to an external cron hitting workflow_dispatch, see .docs/03);
+#   * the failure mode is silent, so keep "notify on failed workflows only"
+#     switched on and trust the staleness line in the site's empty state.
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+#   OPENAI_API_KEY
+#   FIRECRAWL_API_KEY
+#   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY   — the web push keys
+#   CRON_SECRET   — only used to authorise the cache-refresh ping
+# Optional repository variables (Settings > Secrets and variables > Actions > Variables):
+#   SITE_URL      — e.g. https://your-app.vercel.app, so the website refreshes
+#                   immediately instead of within ISR's five minutes.
+#   VAPID_SUBJECT — mailto: address the push service can complain to.
+#   OPENAI_MODEL  — the model id to use, if the built-in default isn't on your
+#                   account. `npm run check-models` lists what your key can use.
+#   ...plus the tuning knobs mapped in the env: block below.
+#
+# NOTE: a variable stored in the GitHub UI does NOT reach the run on its own —
+# Actions only exposes what a workflow explicitly maps into env:. Anything you
+# add in Settings must also be listed below, or the code falls back to its
+# built-in default and the difference is invisible until something fails.
+on:
+  schedule:
+    # 03:23 UTC — 05:23 Berlin in summer (CEST), 04:23 in winter (CET).
+    # GitHub cron is always UTC and does not follow daylight saving.
+    #
+    # Deliberately NOT on the hour. Every `minute 0` schedule on the platform is
+    # queued at the same instant, and the old `0 4 * * *` was starting four to
+    # five hours late, every single day — fine for an email sitting in an inbox,
+    # wrong for a push notification announcing a morning briefing. An off-peak
+    # minute is the documented remedy, but it is best-effort: GitHub does not
+    # promise scheduled workflows fire on time. If a week of observed start
+    # times is still outside ~15 minutes, move the real trigger to an external
+    # cron (cron-job.org, QStash) POSTing to the workflow_dispatch API and leave
+    # this schedule as a backstop — a duplicate run the same day is harmless,
+    # because runBriefing skips a date whose briefing_runs.status is already
+    # `completed`.
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Regenerate even if today already has a briefing'
+        type: boolean
+        default: false
+
+# Never let two runs write the same day's briefing at once.
+concurrency:
+  group: daily-briefing
+  cancel-in-progress: false
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    # Generous ceiling: the point of moving off Vercel was to stop racing a clock,
+    # but a hung run shouldn't burn Actions minutes indefinitely either.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate and send the briefing
+        run: npm run briefing ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '-- --force' || '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL }}
+
+          # Optional tuning. Each is read from a repository *variable*; leaving
+          # one unset sends an empty string, which the code treats as "not set"
+          # and replaces with its own default (see lib/env.ts).
+          # OPENAI_MODEL also accepts a secret, because it is the one people
+          # tend to add next to OPENAI_API_KEY.
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || secrets.OPENAI_MODEL }}
+          OPENAI_REASONING_EFFORT: ${{ vars.OPENAI_REASONING_EFFORT }}
+          OPENAI_TIMEOUT_MS: ${{ vars.OPENAI_TIMEOUT_MS }}
+          OPENAI_MAX_RETRIES: ${{ vars.OPENAI_MAX_RETRIES }}
+          OPENAI_MAX_ATTEMPTS: ${{ vars.OPENAI_MAX_ATTEMPTS }}
+          OPENAI_MAX_OUTPUT_TOKENS: ${{ vars.OPENAI_MAX_OUTPUT_TOKENS }}
+          OPENAI_SELECT_MAX_OUTPUT_TOKENS: ${{ vars.OPENAI_SELECT_MAX_OUTPUT_TOKENS }}
+          OPENAI_CHOICE_MAX_OUTPUT_TOKENS: ${{ vars.OPENAI_CHOICE_MAX_OUTPUT_TOKENS }}
+          OPENAI_CHOICE_EXCERPT_CHARS: ${{ vars.OPENAI_CHOICE_EXCERPT_CHARS }}
+          OPENAI_KNOWN_VOCAB_LIMIT: ${{ vars.OPENAI_KNOWN_VOCAB_LIMIT }}
+          OPENAI_FOCUS_VOCAB_LIMIT: ${{ vars.OPENAI_FOCUS_VOCAB_LIMIT }}
+          OPENAI_FOOTNOTES_MIN: ${{ vars.OPENAI_FOOTNOTES_MIN }}
+          OPENAI_FOOTNOTES_MAX: ${{ vars.OPENAI_FOOTNOTES_MAX }}
+          TOPIC_HISTORY_DAYS: ${{ vars.TOPIC_HISTORY_DAYS }}
+          FEED_RECENCY_DAYS: ${{ vars.FEED_RECENCY_DAYS }}
+          FEED_PER_SOURCE_LIMIT: ${{ vars.FEED_PER_SOURCE_LIMIT }}
+          FEED_PER_CATEGORY_LIMIT: ${{ vars.FEED_PER_CATEGORY_LIMIT }}
+          FEED_TIMEOUT_MS: ${{ vars.FEED_TIMEOUT_MS }}
+          FEEDS_POLITICS: ${{ vars.FEEDS_POLITICS }}
+          FEEDS_FINANCE: ${{ vars.FEEDS_FINANCE }}
+          FEEDS_TECHNOLOGY: ${{ vars.FEEDS_TECHNOLOGY }}
+          FEEDS_GAMING: ${{ vars.FEEDS_GAMING }}
+          FEEDS_GERMANY: ${{ vars.FEEDS_GERMANY }}
+          FIRECRAWL_DAILY_LIMIT: ${{ vars.FIRECRAWL_DAILY_LIMIT }}
+          FIRECRAWL_SCRAPES_PER_CATEGORY: ${{ vars.FIRECRAWL_SCRAPES_PER_CATEGORY }}
+          FIRECRAWL_CONCURRENCY: ${{ vars.FIRECRAWL_CONCURRENCY }}
+          FIRECRAWL_TIMEOUT_MS: ${{ vars.FIRECRAWL_TIMEOUT_MS }}
+          FIRECRAWL_MAX_CHARS: ${{ vars.FIRECRAWL_MAX_CHARS }}
+          FIRECRAWL_MIN_CHARS: ${{ vars.FIRECRAWL_MIN_CHARS }}
+          BRIEFING_DEADLINE_MS: ${{ vars.BRIEFING_DEADLINE_MS }}
+          BRIEFING_SCRAPE_TIME_SHARE: ${{ vars.BRIEFING_SCRAPE_TIME_SHARE }}
+          SHORTLIST_TIMEOUT_MS: ${{ vars.SHORTLIST_TIMEOUT_MS }}
+          CHOICE_TIMEOUT_MS: ${{ vars.CHOICE_TIMEOUT_MS }}

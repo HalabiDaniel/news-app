@@ -1,20 +1,66 @@
 /*
- * Minimal readable defaults for the Phase 1 placeholder. The real typographic
- * system belongs to Phase 4 — this only has to be legible and respect the
- * system theme, so the placeholder doesn't look broken on a phone.
+ * The reading surface.
+ *
+ * One target: an iPhone in standalone mode, first thing in the morning. That
+ * frees the old email constraints (table layouts, inline styles, no JS, a fixed
+ * 600px light-only column) and adds new ones: safe-area insets, 44px tap
+ * targets, a dark mode that is not optional at 6am.
+ *
+ * Hand-written on purpose. The app is five pages of dense German prose; a CSS
+ * framework here would be more configuration than code.
  */
+
+/* --------------------------------------------------------------------------
+ * Tokens. The light palette is defined in full on :root — the dark block below
+ * overrides only what changes, so nothing has its single definition inside a
+ * media query.
+ * ------------------------------------------------------------------------ */
 :root {
   color-scheme: light dark;
-  --bg: #fdfdfc;
-  --fg: #1a1a18;
-  --muted: #5c5c56;
+
+  --bg: #fbfaf7;
+  --bg-raised: #ffffff;
+  --fg: #1b1a17;
+  --fg-muted: #6b6860;
+  --fg-faint: #8d8a80;
+  --rule: #e2ded4;
+  --rule-strong: #cfc9bb;
+
+  /* One accent, used twice: the category labels and the tappable words. */
+  --accent: #9a4a1f;
+  --accent-soft: #f2e7dd;
+
+  --danger: #9b2c2c;
+
+  /* Type. 19px body with generous leading; serif for prose, system UI for
+     chrome — the two jobs are different and should look it. */
+  --font-prose: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia,
+    'Times New Roman', serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+
+  --measure: 34rem; /* ~68 characters at the body size */
+  --gutter: 1.25rem;
+
+  /* No browser chrome in standalone mode: the notch and the home indicator are
+     ours to avoid. These fall back to 0 in an ordinary tab. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14140f;
-    --fg: #ececd9;
-    --muted: #9c9c90;
+    --bg: #14130f;
+    --bg-raised: #1d1c17;
+    --fg: #ece8dd;
+    --fg-muted: #a5a096;
+    --fg-faint: #837e74;
+    --rule: #2c2a24;
+    --rule-strong: #3d3a31;
+
+    --accent: #e0a074;
+    --accent-soft: #33261c;
+
+    --danger: #e08a8a;
   }
 }
 
@@ -22,26 +68,715 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
-  padding: 3rem 1.25rem;
   background: var(--bg);
   color: var(--fg);
-  font: 1rem/1.6 ui-serif, Georgia, 'Times New Roman', serif;
+  font-family: var(--font-prose);
+  font-size: 1.1875rem; /* 19px */
+  line-height: 1.7;
+  /* Room for the fixed header, and never under the home indicator. */
+  padding: calc(var(--safe-top) + 3.5rem) 0 calc(var(--safe-bottom) + 4rem);
+  overflow-wrap: break-word;
 }
 
 main {
-  max-width: 34rem;
+  max-width: var(--measure);
   margin: 0 auto;
+  padding-inline: var(--gutter);
 }
 
-h1 {
-  font-size: 1.6rem;
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+ * Header. The only navigation the standalone app has, so it stays put.
+ * ------------------------------------------------------------------------ */
+.site-header {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--rule);
+  padding-top: var(--safe-top);
+}
+
+.site-header nav {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding-inline: calc(var(--gutter) - 0.5rem);
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.site-header nav::-webkit-scrollbar {
+  display: none;
+}
+
+.site-header a {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  letter-spacing: 0.01em;
+  color: var(--fg-muted);
+  text-decoration: none;
+  /* 44px tall: the minimum comfortable tap target. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  white-space: nowrap;
+}
+
+.site-header a[aria-current='page'] {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+ * Page furniture.
+ * ------------------------------------------------------------------------ */
+.page-title {
+  font-family: var(--font-ui);
+  font-size: 1.375rem;
+  font-weight: 650;
   line-height: 1.25;
-  margin: 0 0 0.75rem;
+  letter-spacing: -0.01em;
+  margin: 1.25rem 0 0.25rem;
 }
 
-p {
-  color: var(--muted);
+.page-date {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+  margin: 0 0 1.5rem;
+}
+
+.lede {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  color: var(--fg-muted);
+  margin: 0 0 1.5rem;
+}
+
+.back-link {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* The jump-to-category rail. Five items, so it fits without scrolling on a
+   390px screen — but it scrolls rather than wraps if a label grows. */
+.category-rail {
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 0 2rem;
+  padding-bottom: 0.25rem;
+}
+
+.category-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.category-rail a {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  color: var(--accent);
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: 0 0.75rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+ * The article.
+ * ------------------------------------------------------------------------ */
+.article {
+  /* Anchor targets would otherwise land under the fixed header. */
+  scroll-margin-top: calc(var(--safe-top) + 4rem);
+}
+
+.article + .article {
+  border-top: 1px solid var(--rule);
+  margin-top: 3rem;
+  padding-top: 2.5rem;
+}
+
+.article-category {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.5rem;
+}
+
+.article-title {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+/* The English title and summary are secondary — you are here to read German. */
+.article-summary {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--fg-muted);
+  margin: 0 0 1.5rem;
+}
+
+.article-title-en {
+  display: block;
+  color: var(--fg-faint);
+  margin-bottom: 0.25rem;
+}
+
+.article-body p {
+  margin: 0 0 1.25rem;
+}
+
+/* A highlighted word. It has to read as interactive inside German prose
+   without looking like a link — hence a dotted accent underline, not blue. */
+.gloss {
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted var(--accent);
+  text-underline-offset: 0.2em;
+}
+
+.gloss[aria-expanded='true'] {
+  background: var(--accent-soft);
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.gloss-number {
+  font-size: 0.6em;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--accent);
+  margin-left: 0.1em;
+}
+
+.article-source {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--fg-faint);
+  margin: 1.5rem 0 0;
+}
+
+.article-source a {
+  color: var(--fg-muted);
+}
+
+/* The full list, kept but collapsed: a decent review tool once you have read
+   the piece, and a distraction before that. */
+.footnote-list {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.25rem;
+}
+
+.footnote-list summary {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.footnote-list ol {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--fg-muted);
+  margin: 0 0 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.footnote-list li {
+  margin-bottom: 0.5rem;
+}
+
+.footnote-list strong {
+  color: var(--fg);
+}
+
+/* --------------------------------------------------------------------------
+ * The footnote sheet: a bottom sheet on a phone, a centred card on a desktop.
+ * Dismissing returns you exactly where you were — that is the whole point, so
+ * nothing here scrolls or moves the page behind it.
+ * ------------------------------------------------------------------------ */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.28);
+  border: 0;
+  padding: 0;
+  width: 100%;
+  animation: sheet-fade 160ms ease-out;
+}
+
+.sheet {
+  position: fixed;
+  z-index: 41;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--rule);
+  border-radius: 14px 14px 0 0;
+  padding: 1.25rem var(--gutter) calc(var(--safe-bottom) + 1.25rem);
+  animation: sheet-up 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.sheet-word {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 0.375rem;
+}
+
+.sheet-explanation {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--fg-muted);
+  margin: 0 0 1rem;
+}
+
+.sheet-close {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+  background: none;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  cursor: pointer;
+}
+
+@media (min-width: 40rem) {
+  .sheet {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(26rem, calc(100vw - 2rem));
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    animation: sheet-fade 140ms ease-out;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sheet-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet-backdrop {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Empty and error states. This is the monitor read every morning, so it says
+ * WHEN the last briefing was, not just that today's is missing.
+ * ------------------------------------------------------------------------ */
+.state {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1.25rem;
+  color: var(--fg-muted);
+  margin: 0 0 2rem;
+}
+
+.state h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 0.5rem;
+}
+
+.state p {
+  margin: 0 0 0.5rem;
+}
+
+.state p:last-child {
+  margin-bottom: 0;
+}
+
+.state.is-broken {
+  border-color: var(--danger);
+}
+
+.state.is-broken h2 {
+  color: var(--danger);
+}
+
+.state code {
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+
+/* --------------------------------------------------------------------------
+ * Archive index. Grouped by month, each day showing its titles — an index of
+ * bare dates stops being navigable at about two weeks.
+ * ------------------------------------------------------------------------ */
+.month-heading {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  margin: 2.5rem 0 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.day-list {
+  list-style: none;
   margin: 0;
+  padding: 0;
+}
+
+.day-list li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.day-list a {
+  display: block;
+  text-decoration: none;
+  padding: 0.875rem 0;
+}
+
+.day-date {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  margin: 0 0 0.25rem;
+}
+
+.day-titles {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--fg);
+  margin: 0;
+}
+
+.day-titles span + span::before {
+  content: ' · ';
+  color: var(--fg-faint);
+}
+
+/* --------------------------------------------------------------------------
+ * Vocabulary.
+ * ------------------------------------------------------------------------ */
+.vocab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vocab-list li {
+  border-top: 1px solid var(--rule);
+  padding: 0.875rem 0;
+}
+
+.vocab-word {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.vocab-english {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  color: var(--fg-muted);
+  margin: 0.125rem 0 0;
+}
+
+.vocab-meta {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--fg-faint);
+  margin: 0.375rem 0 0;
+}
+
+.vocab-meta a {
+  color: var(--fg-faint);
+}
+
+/* --------------------------------------------------------------------------
+ * Settings. Off the reading surface on purpose — a "generate now" button does
+ * not belong next to the prose.
+ * ------------------------------------------------------------------------ */
+.settings-section {
+  border-top: 1px solid var(--rule);
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+}
+
+.settings-section h2 {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.settings-note {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+  margin: 0 0 1rem;
+}
+
+.manual-trigger button,
+.manual-trigger input {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  min-height: 44px;
+}
+
+.manual-trigger > button {
+  background: var(--fg);
+  color: var(--bg);
+  border: 0;
+  border-radius: 8px;
+  padding: 0 1.25rem;
+  cursor: pointer;
+}
+
+.manual-trigger > button[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.manual-trigger-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.manual-trigger-form label {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+}
+
+.manual-trigger input {
+  background: var(--bg-raised);
+  color: var(--fg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  width: 100%;
+  /* iOS zooms the page when a focused input is under 16px. */
+  font-size: 1rem;
+}
+
+.manual-trigger-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.manual-trigger-row button[type='submit'] {
+  background: var(--fg);
+  color: var(--bg);
+  border: 0;
+  border-radius: 8px;
+  padding: 0 1rem;
+  cursor: pointer;
+}
+
+.manual-trigger-row .link {
+  background: none;
+  border: 0;
+  color: var(--fg-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+.manual-trigger-note,
+.manual-trigger-status {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+  margin: 0.75rem 0 0;
+}
+
+.manual-trigger-status.error {
+  color: var(--danger);
+}
+
+/* --------------------------------------------------------------------------
+ * Push. Same furniture as the manual trigger — this is the other operator
+ * control — but with more room for prose: half of this component's job is
+ * explaining an iOS rule before the user hits it.
+ * ------------------------------------------------------------------------ */
+.push-toggle button,
+.push-toggle input {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  min-height: 44px;
+}
+
+.push-toggle > button,
+.push-row button[type='button']:not(.link),
+.push-row button[type='submit'] {
+  background: var(--fg);
+  color: var(--bg);
+  border: 0;
+  border-radius: 8px;
+  padding: 0 1.25rem;
+  cursor: pointer;
+}
+
+.push-toggle button[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.push-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.push-row .link {
+  background: none;
+  border: 0;
+  color: var(--fg-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+.push-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.push-form label {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+}
+
+.push-form input {
+  background: var(--bg-raised);
+  color: var(--fg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  width: 100%;
+  /* iOS zooms the page when a focused input is under 16px. */
+  font-size: 1rem;
+}
+
+.push-note,
+.push-status {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+  margin: 0 0 1rem;
+}
+
+.push-status {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+}
+
+.push-status.good {
+  color: var(--accent);
+}
+
+.push-status.bad {
+  color: var(--danger);
+}
+
+/* The one-time nudge above the first article. Quiet on purpose: it is an offer,
+   not an interruption, and it is gone for good once dismissed. */
+.push-nudge {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  background: var(--accent-soft);
+  border-radius: 10px;
+  padding: 0.75rem 0.875rem;
+  margin: 0 0 1.75rem;
+}
+
+.push-nudge a {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.push-nudge button {
+  background: none;
+  border: 0;
+  color: var(--fg-faint);
+  font: inherit;
+  cursor: pointer;
+  /* A 44px target without a 44px box: the dismiss sits inside a padded row. */
+  padding: 0.5rem;
+  margin: -0.5rem;
 }

@@ -23,19 +23,18 @@ interface SubscriptionRow {
 }
 
 /**
- * Pushes one notification to every stored subscription.
+ * Points web-push at the VAPID pair, once per process.
  *
- * @returns how many devices accepted the push. This number is written to
- * `briefing_runs.push_sent`, and it is the first thing worth looking at when no
- * notification arrives: `0` means there were no live subscriptions, `1` means it
- * was sent and lost somewhere downstream.
+ * @returns false when the keys are missing, which is a "skip notifications"
+ * condition and never an error: the briefing itself does not depend on them, and
+ * a local run has no reason to hold the private key.
  */
-export async function sendBriefingPush(date: string, count: number): Promise<number> {
-  const publicKey = envString('VAPID_PUBLIC_KEY');
+export function configureWebPush(): boolean {
+  const publicKey = envString('VAPID_PUBLIC_KEY') ?? envString('NEXT_PUBLIC_VAPID_PUBLIC_KEY');
   const privateKey = envString('VAPID_PRIVATE_KEY');
   if (!publicKey || !privateKey) {
     console.warn('[push] VAPID keys not set — skipping notifications.');
-    return 0;
+    return false;
   }
 
   // `VAPID_SUBJECT` is required by the spec and must be a mailto: or https URL.
@@ -46,6 +45,59 @@ export async function sendBriefingPush(date: string, count: number): Promise<num
     publicKey,
     privateKey,
   );
+  return true;
+}
+
+/**
+ * Pushes one payload to one subscription. Used by the settings page's test
+ * button — the control that answers "is this subscription still alive?" in two
+ * seconds instead of overnight.
+ *
+ * Deleting on 404/410 here matters as much as it does in the daily run: a dead
+ * subscription found by the test button should disappear on the spot, so the
+ * toggle can offer to re-subscribe rather than keep reporting a phantom device.
+ */
+export async function sendToSubscription(
+  endpoint: string,
+  keys: { p256dh: string; auth: string },
+  payload: { title: string; body: string; url?: string; tag?: string },
+): Promise<{ ok: true } | { ok: false; status?: number; expired: boolean; message: string }> {
+  if (!configureWebPush()) {
+    return { ok: false, expired: false, message: 'VAPID keys are not configured on this deployment.' };
+  }
+
+  try {
+    await webpush.sendNotification({ endpoint, keys }, JSON.stringify(payload));
+    await getSupabaseAdmin()
+      .from('push_subscriptions')
+      .update({ last_success_at: new Date().toISOString(), failure_count: 0 })
+      .eq('endpoint', endpoint);
+    return { ok: true };
+  } catch (err) {
+    const status = (err as { statusCode?: number }).statusCode;
+    const expired = status === 404 || status === 410;
+    if (expired) {
+      await getSupabaseAdmin().from('push_subscriptions').delete().eq('endpoint', endpoint);
+    }
+    return {
+      ok: false,
+      status,
+      expired,
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Pushes one notification to every stored subscription.
+ *
+ * @returns how many devices accepted the push. This number is written to
+ * `briefing_runs.push_sent`, and it is the first thing worth looking at when no
+ * notification arrives: `0` means there were no live subscriptions, `1` means it
+ * was sent and lost somewhere downstream.
+ */
+export async function sendBriefingPush(date: string, count: number): Promise<number> {
+  if (!configureWebPush()) return 0;
 
   const supabase = getSupabaseAdmin();
   const { data: subs, error } = await supabase
